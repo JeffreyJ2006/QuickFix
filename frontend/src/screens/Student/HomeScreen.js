@@ -16,7 +16,7 @@ import { COLORS, spacing } from '../../constants/theme.js';
 import { format } from 'date-fns';
 
 export default function HomeScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -25,17 +25,18 @@ export default function HomeScreen({ navigation }) {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetchComplaints();
   }, []);
 
   const fetchComplaints = async () => {
+    setError(false);
     try {
       const data = await complaintAPI.getAll({ limit: 5 });
-     // const data = response.data.data.complaints;
       setComplaints(data);
-      
+
       setStats({
         total: data.length,
         pending: data.filter(c => c.status !== 'Resolved').length,
@@ -43,11 +44,22 @@ export default function HomeScreen({ navigation }) {
       });
     } catch (error) {
       console.error('Fetch complaints error:', error);
-      Alert.alert('Error', 'Failed to load complaints');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', onPress: logout, style: 'destructive' },
+      ]
+    );
   };
 
   const onRefresh = useCallback(() => {
@@ -79,6 +91,24 @@ export default function HomeScreen({ navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.loadingContainer, { padding: 20 }]}>
+        <MaterialCommunityIcons name="wifi-off" size={64} color={COLORS.error} />
+        <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 10 }}>Network Error</Text>
+        <Text style={{ textAlign: 'center', color: COLORS.textSecondary, marginTop: 10, marginBottom: 20 }}>
+          Could not connect to the server. Please check your connection and IP address.
+        </Text>
+        <Button mode="contained" onPress={fetchComplaints} style={{ width: '100%', marginBottom: 10 }}>
+          Retry
+        </Button>
+        <Button mode="outlined" onPress={handleLogout} style={{ width: '100%' }} textColor={COLORS.error}>
+          Logout
+        </Button>
       </View>
     );
   }

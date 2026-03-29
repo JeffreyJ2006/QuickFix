@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Avatar, List, Divider, Button } from 'react-native-paper';
+import { Text, Card, Avatar, List, Divider, Button, ActivityIndicator } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { adminAPI } from '../../api/endpoints.js';
 import { COLORS, spacing } from '../../constants/theme.js';
 import { useAuth } from '../../context/AuthContext.js';
 
 export default function AdminDashboardScreen({ navigation }) {
   const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -14,11 +17,16 @@ export default function AdminDashboardScreen({ navigation }) {
   }, []);
 
   const fetchDashboard = async () => {
+    setLoading(true);
+    setError(false);
     try {
       const response = await adminAPI.getDashboard();
       setStats(response.data.data.stats);
     } catch (error) {
       console.error('Fetch dashboard error:', error);
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,18 +38,39 @@ export default function AdminDashboardScreen({ navigation }) {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Logout', 
-          onPress: () => {
-            logout();
-            // The navigation to login screen will happen automatically due to the
-            // condition in AppNavigator (!isAuthenticated ? <AuthStack /> : ...)
-          }, 
+          onPress: logout, 
           style: 'destructive' 
         },
       ]
     );
   };
 
-  if (!stats) return null;
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ marginTop: 10 }}>Loading Dashboard...</Text>
+      </View>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <MaterialCommunityIcons name="wifi-off" size={64} color={COLORS.error} />
+        <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 10 }}>Network Error</Text>
+        <Text style={{ textAlign: 'center', color: COLORS.textSecondary, marginTop: 10, marginBottom: 20 }}>
+          Could not connect to the server. Please check if the backend is running and your IP is correct.
+        </Text>
+        <Button mode="contained" onPress={fetchDashboard} style={{ width: '100%', marginBottom: 10 }}>
+          Retry
+        </Button>
+        <Button mode="outlined" onPress={handleLogout} style={{ width: '100%' }} textColor={COLORS.error}>
+          Logout
+        </Button>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
